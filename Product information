@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Commerce Product Scraper</title>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3a0ca3;
+            --accent-color: #f72585;
+            --light-color: #f8f9fa;
+            --dark-color: #212529;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: var(--light-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-attachment: fixed;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px;
+            background-color: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            margin: 20px 0;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+            font-weight: 600;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .input-group {
+            display: flex;
+            margin-bottom: 20px;
+        }
+
+        input[type="url"] {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px 0 0 8px;
+            font-size: 16px;
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+
+        button {
+            padding: 12px 20px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #d91a6d;
+            transform: translateY(-2px);
+        }
+
+        .results {
+            margin-top: 30px;
+            max-height: 400px;
+            overflow-y: auto;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            padding: 15px;
+            color: var(--dark-color);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        .download-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .download-btn:hover {
+            background-color: #3e8e41;
+            transform: translateY(-2px);
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid var(--accent-color);
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            color: #ff6b6b;
+            text-align: center;
+            margin-top: 20px;
+            font-weight: 600;
+        }
+
+        footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>E-Commerce Product Scraper</h1>
+        
+        <div class="input-group">
+            <input type="url" id="urlInput" placeholder="Enter e-commerce product page URL..." required>
+            <button id="scrapeBtn">Scrape Products</button>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Scraping product data...</p>
+        </div>
+        
+        <div class="error" id="error"></div>
+        
+        <div class="results" id="results" style="display: none;">
+            <h2>Scraped Products</h2>
+            <table id="productTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Price</th>
+                        <th>Rating</th>
+                    </tr>
+                </thead>
+                <tbody id="productTableBody"></tbody>
+            </table>
+            <button class="download-btn" id="downloadBtn">Download as CSV</button>
+        </div>
+    </div>
+    
+    <footer>
+        Note: This is a demo. For real websites, you may need a backend service due to CORS restrictions.
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlInput = document.getElementById('urlInput');
+            const scrapeBtn = document.getElementById('scrapeBtn');
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const results = document.getElementById('results');
+            const productTableBody = document.getElementById('productTableBody');
+            const downloadBtn = document.getElementById('downloadBtn');
+            
+            let scrapedData = [];
+            
+            scrapeBtn.addEventListener('click', async function() {
+                const url = urlInput.value.trim();
+                
+                if (!url) {
+                    showError('Please enter a valid URL');
+                    return;
+                }
+                
+                // Reset UI
+                error.textContent = '';
+                results.style.display = 'none';
+                loading.style.display = 'block';
+                
+                try {
+                    // In a real application, you would need a backend service to scrape websites
+                    // due to CORS restrictions. This is a demo with mock data.
+                    
+                    // Simulate API call delay
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    // Mock data for demonstration
+                    scrapedData = generateMockData();
+                    
+                    displayResults(scrapedData);
+                } catch (err) {
+                    showError('Failed to scrape data: ' + err.message);
+                } finally {
+                    loading.style.display = 'none';
+                }
+            });
+            
+            downloadBtn.addEventListener('click', function() {
+                if (scrapedData.length === 0) {
+                    showError('No data to download');
+                    return;
+                }
+                
+                downloadCSV(scrapedData, 'products.csv');
+            });
+            
+            function displayResults(products) {
+                productTableBody.innerHTML = '';
+                
+                products.forEach(product => {
+                    const row = document.createElement('tr');
+                    
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = product.name;
+                    row.appendChild(nameCell);
+                    
+                    const priceCell = document.createElement('td');
+                    priceCell.textContent = product.price;
+                    row.appendChild(priceCell);
+                    
+                    const ratingCell = document.createElement('td');
+                    ratingCell.textContent = product.rating;
+                    row.appendChild(ratingCell);
+                    
+                    productTableBody.appendChild(row);
+                });
+                
+                results.style.display = 'block';
+            }
+            
+            function showError(message) {
+                error.textContent = message;
+                loading.style.display = 'none';
+            }
+            
+            function generateMockData() {
+                // This generates mock data for demonstration
+                // In a real application, you would scrape actual website data
+                const mockProducts = [
+                    { name: 'Wireless Bluetooth Headphones', price: '$59.99', rating: '4.5 ★' },
+                    { name: 'Smart Watch Fitness Tracker', price: '$89.99', rating: '4.2 ★' },
+                    { name: 'Portable USB Charger 10000mAh', price: '$25.49', rating: '4.7 ★' },
+                    { name: 'Ergonomic Wireless Keyboard', price: '$45.99', rating: '4.3 ★' },
+                    { name: 'HD Webcam with Microphone', price: '$32.99', rating: '4.1 ★' },
+                    { name: 'Noise Cancelling Earbuds', price: '$79.99', rating: '4.6 ★' },
+                    { name: 'Adjustable Laptop Stand', price: '$29.99', rating: '4.4 ★' },
+                ];
+                
+                return mockProducts;
+            }
+            
+            function downloadCSV(data, filename) {
+                const csvRows = [];
+                
+                // Add headers
+                csvRows.push(['Name', 'Price', 'Rating'].join(','));
+                
+                // Add data rows
+                data.forEach(item => {
+                    csvRows.push([`"${item.name}"`, `"${item.price}"`, `"${item.rating}"`].join(','));
+                });
+                
+                const csvContent = csvRows.join('\n');
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.setAttribute('href', url);
+                link.setAttribute('download', filename);
+                link.style.display = 'none';
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        });
+    </script>
+</body>
+</html>
